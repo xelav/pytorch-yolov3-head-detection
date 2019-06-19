@@ -1,0 +1,51 @@
+{
+    "model" : {
+        "config": "config/models/yolov3.cfg",
+        "pretrained_weights": "E:/Datasets/yolov3.weights",
+
+        "input_size":           416,
+        "labels":               ["head"]
+    },
+
+    "train": {
+
+        "image_folder":   "E:/Datasets/HollywoodHeads/HollywoodHeads/JPEGImages",
+        "annot_folder":   "E:/Datasets/HollywoodHeads/HollywoodHeads/Annotations",
+        "cache_dir"         :   "E:/Datasets/HollywoodHeads/HollywoodHeads/",
+        "split_file"        :   "E:/Datasets/HollywoodHeads/HollywoodHeads/Splits/train.txt",
+
+        "seed": 42,
+
+        "pretrained_weights":   "",
+        "batch_size":           2,
+        "gradient_accumulations": 1,
+        "_effective_batch_size_comment": "effective batch size: batch_size * gradient_accumulations",
+        "learning_rate":        1e-4,
+        "nb_epochs":            1,
+
+        "augment":              true,
+        "gradient_clipping": false,
+        "freeze_feature_extractor": true,
+
+        "save_every"        :   100,
+
+        "debug":                true
+    },
+
+    "val": {
+        "validate": true,
+
+        "image_folder":   "E:/Datasets/HollywoodHeads/HollywoodHeads/JPEGImages",
+        "annot_folder":   "E:/Datasets/HollywoodHeads/HollywoodHeads/Annotations",
+        "cache_dir"         :   "E:/Datasets/HollywoodHeads/HollywoodHeads/",
+        "split_file"        :   "E:/Datasets/HollywoodHeads/HollywoodHeads/Splits/test.txt",
+
+        "nms_threshold"  : 0.3,
+        "conf_threshold" : 0.5,
+        "iou_threshold"  : 0.5,
+
+        "shuffle_dataset": true,
+
+        "batch_size": 1
+    }
+}

@@ -1,0 +1,52 @@
+{
+    "model" : {
+        "config": "config/models/yolov3.cfg",
+        "pretrained_weights": "/content/drive/My Drive/Datasets/head-detection/yolov3.weights",
+
+        "input_size":           416,
+        "labels":               ["head"]
+    },
+
+    "train": {
+
+        "image_folder":   "/content/drive/My Drive/Datasets/head-detection/JPEGImages/",
+        "annot_folder":   "/content/drive/My Drive/Datasets/head-detection/Annotations/",
+        "cache_dir"         :   "/content/drive/My Drive/Datasets/head-detection/",
+        "split_file"        :  "",
+
+        "seed": 42,
+        "_seed_comment" : "negative value disables determined seed",
+
+        "pretrained_weights":   "",
+        "batch_size":           16,
+        "gradient_accumulations": 1,
+        "_effective_batch_size_comment": "effective batch size: batch_size * gradient_accumulations",
+        "learning_rate":        1e-4,
+        "nb_epochs":            3,
+
+        "augment":              false,
+        "gradient_clipping": false,
+        "freeze_feature_extractor": false,
+
+        "save_every"        :   500,
+
+        "debug":                false
+    },
+
+    "val": {
+        "validate"        :  false,
+
+        "image_folder":   "/content/drive/My Drive/Datasets/HollywoodHeadsTest/JPEGImages/",
+        "annot_folder":   "/content/drive/My Drive/Datasets/HollywoodHeadsTest/Annotations/",
+        "cache_dir"         :   "/content/drive/My Drive/Datasets/HollywoodHeadsTest/",
+        "split_file"        :  "",
+
+        "nms_threshold"  : 0.3,
+        "conf_threshold" : 0.5,
+        "iou_threshold"  : 0.5,
+
+        "shuffle_dataset": true,
+
+        "batch_size": 16
+    }
+}

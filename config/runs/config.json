@@ -1,0 +1,68 @@
+{
+    "model" : {
+        "config": "config/models/yolov3.cfg",
+        "pretrained_weights": "/content/drive/My Drive/Datasets/head-detection/yolov3.weights",
+
+        "input_size":           416,
+        "labels":               ["head"]
+    },
+
+    "train": {
+        "seed": -1,
+        "_seed_comment" : "negative value disables determined seed",
+
+        "batch_size":           16,
+        "gradient_accumulations": 4,
+        "_effective_batch_size_comment": "effective batch size: batch_size * gradient_accumulations",
+        "learning_rate":        1e-4,
+        "nb_epochs":            5,
+
+        "augment":              true,
+        "gradient_clipping": false,
+        "freeze_feature_extractor": true,
+
+        "save_every"        :   -1,
+
+        "debug":                false,
+
+        "datasets": [{
+                "name"              :  "SCUT-HEAD",
+                "image_folder"      :  "/content/drive/My Drive/Datasets/head-detection/JPEGImages/",
+                "annot_folder"      :  "/content/drive/My Drive/Datasets/head-detection/Annotations/",
+                "cache_dir"         :  "/content/drive/My Drive/Datasets/head-detection/",
+                "split_file"        :  "/content/drive/My Drive/Datasets/head-detection/ImageSets/MainCombined/trainval.txt"
+            }, {
+                "name"              :  "Hollywood Heads",
+                "image_folder"      :  "/content/drive/My Drive/Datasets/HollywoodHeadsTest/JPEGImages/",
+                "annot_folder"      :  "/content/drive/My Drive/Datasets/HollywoodHeadsTest/Annotations/",
+                "cache_dir"         :  "/content/drive/My Drive/Datasets/HollywoodHeadsTest/",
+                "split_file"        :  ""
+        }]
+    },
+
+    "val": {
+         "validate"        :  true,
+
+        "nms_threshold"  : 0.3,
+        "conf_threshold" : 0.5,
+        "iou_threshold"  : 0.5,
+
+        "shuffle_dataset": true,
+
+        "batch_size": 16,
+
+        "datasets": [{
+            "name"              :  "SCUT-HEAD",
+            "image_folder"      :  "/content/drive/My Drive/Datasets/head-detection/JPEGImages/",
+            "annot_folder"      :  "/content/drive/My Drive/Datasets/head-detection/Annotations/",
+            "cache_dir"         :  "/content/drive/My Drive/Datasets/head-detection/",
+            "split_file"        :  "/content/drive/My Drive/Datasets/head-detection/ImageSets/MainCombined/test.txt"
+        }, {
+            "name"              :  "Hollywood Heads",
+            "image_folder"      :  "/content/drive/My Drive/Datasets/HollywoodHeadsTest/JPEGImages/",
+            "annot_folder"      :  "/content/drive/My Drive/Datasets/HollywoodHeadsTest/Annotations/",
+            "cache_dir"         :  "/content/drive/My Drive/Datasets/HollywoodHeadsTest/",
+            "split_file"        :  ""
+        }]
+    }
+}
