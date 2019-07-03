@@ -1,13 +1,13 @@
 import os
 import numpy as np
-from utils.datasets import VOCDetection, MultiscaleConcatDataset
+from utils.datasets import ScutHeadDataset
 from eval import evaluate
 from models import Darknet
 from utils.utils import *
 from utils.plot import draw_image_batch_with_targets
 from tensorboardX import SummaryWriter
 import json
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 import torch
 from tqdm import tqdm
 import logging
@@ -26,8 +26,7 @@ def get_experiment_name(config):
     frozen_extractor = "frozen__" if config["train"]["freeze_feature_extractor"] else ""
 
     return f"exp__b_{batch_size}_grad_{grad_accum}" \
-        + f"__lr_{learning_rate:.1e}".replace('.', ',') + \
-        f"__{augment}{frozen_extractor}{grad_clipping}"
+        f"__lr_{learning_rate:.1e}__{augment}{frozen_extractor}{grad_clipping}"
 
 
 def get_grad_norm(model):
@@ -43,60 +42,40 @@ def get_grad_norm(model):
 
 
 def prepare_dataloaders(config):
+    train_dataset = ScutHeadDataset(img_dir=config['train']["image_folder"],
+                                    annotation_dir=config['train']["annot_folder"],
+                                    cache_dir=config['train']["cache_dir"],
+                                    split_file=config['train']['split_file'],
+                                    img_size=config['model']['input_size'],
+                                    filter_labels=config['model']['labels'],
+                                    multiscale=True,
+                                    augment=config['train']['augment'])
 
-    train_datasets = list()
-    for dataset_config in config['train']["datasets"]:
-
-        train_dataset = VOCDetection(img_dir=dataset_config["image_folder"],
-                                     annotation_dir=dataset_config["annot_folder"],
-                                     cache_dir=dataset_config["cache_dir"],
-                                     split_file=dataset_config['split_file'],
-                                     img_size=config['model']['input_size'],
-                                     filter_labels=config['model']['labels'],
-                                     multiscale=True,
-                                     augment=config['train']['augment'])
-        train_dataset.name = dataset_config.get('name')
-        train_datasets.append(train_dataset)
-
-    train_concat_dataset = MultiscaleConcatDataset(train_datasets)
-    train_loader = DataLoader(train_concat_dataset,
+    train_loader = DataLoader(train_dataset,
                               batch_size=config["train"]["batch_size"],
-                              collate_fn=train_concat_dataset.collate_fn,
+                              collate_fn=train_dataset.collate_fn,
                               shuffle=True)
 
     if not config['val']['validate']:
         return train_loader
 
     else:
-        val_datasets, val_loader_dict = list(), dict()
-        for i, dataset_config in enumerate(config['val']["datasets"]):
-            val_dataset = VOCDetection(img_dir=dataset_config["image_folder"],
-                                       annotation_dir=dataset_config["annot_folder"],
-                                       cache_dir=dataset_config["cache_dir"],
-                                       split_file=dataset_config['split_file'],
-                                       img_size=config['model']['input_size'],
-                                       filter_labels=config['model']['labels'],
-                                       multiscale=False,
-                                       augment=False)
-            val_dataset.name = dataset_config.get('name')
-            val_datasets.append(val_dataset)
+        val_dataset = ScutHeadDataset(img_dir=config['val']["image_folder"],
+                                      annotation_dir=config['val']["annot_folder"],
+                                      cache_dir=config['val']["cache_dir"],
+                                      split_file=config['val']['split_file'],
+                                      img_size=config['model']['input_size'],
+                                      filter_labels=config['model']['labels'],
+                                      multiscale=False,
+                                      augment=False)
+        val_loader = DataLoader(val_dataset,
+                                batch_size=config["val"]["batch_size"],
+                                collate_fn=val_dataset.collate_fn,
+                                shuffle=True)
 
-            val_concat_dataset = MultiscaleConcatDataset(val_datasets)
-            val_loader = DataLoader(val_dataset,
-                                    batch_size=config["val"]["batch_size"],
-                                    collate_fn=val_dataset.collate_fn,
-                                    shuffle=True)
-            dataset_name = val_dataset.name if val_dataset.name else f"Dataset #{i}"
-            val_loader_dict[dataset_name] = val_loader
-        val_concat_loader = DataLoader(val_concat_dataset,
-                            batch_size=config["val"]["batch_size"],
-                            collate_fn=val_concat_dataset.collate_fn,
-                            shuffle=True)
-
-        return train_loader, val_concat_loader, val_loader_dict
+        return train_loader, val_loader
 
 
-# TODO: move somewhere
 metrics = [
     "grid_size",
     "loss",
@@ -160,7 +139,7 @@ def main():
     ###############################
     print("Loading datasets...")
     if config['val']['validate']:
-        train_loader, val_concat_loader, val_loader_dict = prepare_dataloaders(config)
+        train_loader, val_loader = prepare_dataloaders(config)
     else:
         train_loader = prepare_dataloaders(config)
     print("Loaded!")
@@ -169,7 +148,7 @@ def main():
         draw_image_batch_with_targets(image_batch[:4], target, cols=2)
 
         if config['val']['validate']:
-            val_image_batch, val_target = next(iter(val_concat_loader))
+            val_image_batch, val_target = next(iter(val_loader))
             draw_image_batch_with_targets(val_image_batch[:4], val_target, cols=2)
 
     ###############################
@@ -206,7 +185,7 @@ def main():
     save_every = config["train"]["save_every"]
 
     if config["val"]["validate"]:
-        val_iterator = iter(val_concat_loader)
+        val_iterator = iter(val_loader)
 
     for epoch in range(config["train"]["nb_epochs"]):
 
@@ -240,7 +219,7 @@ def main():
                     try:
                         val_image_batch, val_bboxes = next(val_iterator)
                     except StopIteration:
-                        val_iterator = iter(val_concat_loader)
+                        val_iterator = iter(val_loader)
                         val_image_batch, val_bboxes = next(val_iterator)
                     val_image_batch = val_image_batch.to(device)
                     val_bboxes = val_bboxes.to(device)
@@ -278,21 +257,15 @@ def main():
 
 
         if config["val"]["validate"]:
-            result_dict = evaluate(model, val_loader_dict, config["val"])
-            for name, results in result_dict.items():
-                output_str = f"{name} evaluation results:\n" \
-                    f"precision-{results['precision']},\n" \
-                    f"recall-{results['recall']},\n" \
-                    f"AP-{results['AP']},\n" \
-                    f"F1-{results['F1']},\n" \
-                    f"ap_class-{results['AP_class']}"
-                logging.info(output_str)
-                print(output_str)
+            precision, recall, AP, f1, ap_class = evaluate(model, val_loader, config["val"])
+            output_str = f"Evaluating results: precision-{precision}, recall-{recall}, AP-{AP}, F1-{f1}, ap_class-{ap_class}"
+            logging.info(output_str)
+            print(output_str)
 
-                tb_logger.add_scalar(f"val_precision/{name}", results['precision'], epoch)
-                tb_logger.add_scalar(f"val_recall/{name}", results['recall'], epoch)
-                tb_logger.add_scalar(f"val_F1/{name}", results['F1'], epoch)
-                tb_logger.add_scalar(f"val_AP/{name}", results['AP'], epoch)
+            tb_logger.add_scalar("val_precision", precision, epoch)
+            tb_logger.add_scalar("val_recall", recall, epoch)
+            tb_logger.add_scalar("val_F1", f1, epoch)
+            tb_logger.add_scalar("val_AP", AP, epoch)
 
         # save model
         torch.save(model.state_dict(), f"{checkpoint_dir}/yolov3_epoch_{epoch}.pth")
