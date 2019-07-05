@@ -6,13 +6,13 @@ from torch.utils.data import DataLoader
 from utils.utils import *
 import argparse
 import json
-from utils.datasets import ScutHeadDataset
+from utils.datasets import ScutHeadDataset, VOCDetection
 from models import Darknet
 from tqdm import tqdm
 from utils.plot import draw_prediction
 
 
-def evaluate(model, val_dataloader, val_config):
+def _evaluate_on_single_dataset(model, val_loader, val_config):
     model.eval()
 
     conf_thres = val_config["conf_threshold"]
@@ -26,7 +26,7 @@ def evaluate(model, val_dataloader, val_config):
     sample_metrics = []
     labels = []
 
-    bar = tqdm(val_dataloader, desc="Evaluating ")
+    bar = tqdm(val_loader, desc="Evaluating ")
     for i, (image_batch, bboxes) in enumerate(bar):
         image_batch = image_batch.to(device)
         # bboxes = bboxes.to(device)
@@ -56,6 +56,25 @@ def evaluate(model, val_dataloader, val_config):
     return precision, recall, AP, f1, ap_class
 
 
+def evaluate(model, val_loader_dict, val_config):
+    """
+
+    :param model:
+    :param val_loader_dict: dict of {dataset name: dataset DataLoader}
+    :param val_config: 'val' part of JSON-config
+    :return:
+    """
+    result_dict = dict()
+    for name, dataloader in val_loader_dict.items():
+        precision, recall, AP, f1, ap_class = _evaluate_on_single_dataset(model, dataloader, val_config)
+
+        res = dict()
+        res['precision'], res['recall'], res['AP'], res['F1'], res['AP_class'] = precision, recall, AP, f1, ap_class
+        result_dict[name] = res
+
+    return result_dict
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", default="runs/config.json")
@@ -66,27 +85,39 @@ def main():
     with open(args.config_file) as config_buffer:
         config = json.loads(config_buffer.read())
 
-    val_dataset = ScutHeadDataset(img_dir=config['val']["image_folder"],
-                                  annotation_dir=config['val']["annot_folder"],
-                                  cache_dir=config['val']["cache_dir"],
-                                  split_file=config['val']['split_file'],
-                                  img_size=config['model']['input_size'],
-                                  filter_labels=config['model']['labels'],
-                                  multiscale=False,  # TODO: not sure if it should be False
-                                  augment=False)
-    val_loader = DataLoader(val_dataset,
-                            batch_size=config["val"]["batch_size"],
-                            collate_fn=val_dataset.collate_fn)
+    val_loader_dict = dict()
+    for i, dataset_config in enumerate(config['val']["datasets"]):
+        val_dataset = VOCDetection(img_dir=dataset_config["image_folder"],
+                                   annotation_dir=dataset_config["annot_folder"],
+                                   cache_dir=dataset_config["cache_dir"],
+                                   split_file=dataset_config['split_file'],
+                                   img_size=config['model']['input_size'],
+                                   filter_labels=config['model']['labels'],
+                                   multiscale=False,
+                                   augment=False)
+        val_dataset.name = dataset_config.get('name')
+
+        val_loader = DataLoader(val_dataset,
+                                batch_size=config["val"]["batch_size"],
+                                collate_fn=val_dataset.collate_fn,
+                                shuffle=True)
+        dataset_name = val_dataset.name if val_dataset.name else f"Dataset #{i}"
+        val_loader_dict[dataset_name] = val_loader
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Darknet(config["model"]["config"]).to(device)
     model.load_state_dict(torch.load(args.model_checkpoint))
     model.eval()
 
-    precision, recall, AP, f1, ap_class = evaluate(model, val_loader, config["val"])
-    output_str = f"Evaluating results: precision-{precision}, recall-{recall}, AP-{AP}, F1-{f1}, ap_class-{ap_class}"
-    print(output_str)
-
+    result_dict = evaluate(model, val_loader_dict, config["val"])
+    for name, results in result_dict.items():
+        output_str = f"{name} evaluation results:\n" \
+            f"precision-{results['precision']},\n" \
+            f"recall-{results['recall']},\n" \
+            f"AP-{results['AP']},\n" \
+            f"F1-{results['F1']},\n" \
+            f"ap_class-{results['AP_class']}"
+        print(output_str)
 
 if __name__ == '__main__':
     main()

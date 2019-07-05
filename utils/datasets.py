@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import os
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import torch
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 from PIL import Image
@@ -42,9 +42,53 @@ def random_resize(images, min_size=288, max_size=448):
     return images
 
 
-class VOCDetection(Dataset):
+class MultiscaleConcatDataset(ConcatDataset):
+    """
+    Awkward wrapper to make the collate_fn method as some sort
+    of callback for multiscale datasets. Works just like VOCDetection.collate_fn
     """
 
+    def __init__(self, datasets, img_size=416, multiscale=True):
+        super(MultiscaleConcatDataset, self).__init__(datasets)
+
+        self.img_size = img_size
+
+        self.min_size = self.img_size - 3 * 32
+        self.max_size = self.img_size + 3 * 32
+        self.multiscale = multiscale
+        self.multiscale_interval = 10
+
+        self.batch_count = 0
+
+    def pick_new_img_size(self):
+
+        if self.multiscale:
+            self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
+            logger.debug(f"changing img_size. New img_size: {self.img_size}")
+
+    def collate_fn(self, batch):
+        imgs, targets = list(zip(*batch))
+
+        for i, boxes in enumerate(targets):
+            boxes[:, 0] = i
+        targets = torch.cat(targets, 0)
+
+        if self.multiscale and self.batch_count % self.multiscale_interval == 0:
+            self.pick_new_img_size()
+            for dataset in self.datasets:
+                dataset.img_size = self.img_size
+
+        self.batch_count += 1
+
+        imgs = torch.stack(imgs)
+        return imgs, targets
+
+
+class VOCDetection(Dataset):
+    """
+    Dataset class for VOCPascal-like datasets.
+    Implements collate_fn method for multiscale training.
+    Also makes a cache files for all parsed annotation files.
     """
 
     def __init__(self, img_dir, annotation_dir, split_file=None, cache_dir=None, img_size=416, filter_labels=None, multiscale=True, augment=False):
@@ -69,6 +113,7 @@ class VOCDetection(Dataset):
         self.min_size = self.img_size - 3 * 32
         self.max_size = self.img_size + 3 * 32
         self.multiscale = multiscale
+        self.multiscale_interval = 10
 
         self.batch_count = 0
 
@@ -196,6 +241,12 @@ class VOCDetection(Dataset):
 
         return padded_image, targets
 
+    def pick_new_img_size(self):
+
+        if self.multiscale:
+            self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
+            logger.debug(f"changing img_size. New img_size: {self.img_size}")
+
     def collate_fn(self, batch):
         imgs, targets = list(zip(*batch))
 
@@ -204,14 +255,12 @@ class VOCDetection(Dataset):
         targets = torch.cat(targets, 0)
 
         # Selects new image size every tenth batch
-        if self.multiscale and self.batch_count % 10 == 0:
-            self.img_size = random.choice(range(self.min_size, self.max_size + 1, 32))
-            logger.debug(f"changing img_size. New img_size: {self.img_size}")
-            # Resize images to input shape
-            imgs = [resize(img, self.img_size) for img in imgs]
+        if self.batch_count % self.multiscale_interval == 0:
+            self.pick_new_img_size()
 
         self.batch_count += 1
 
+        # auf pipe time logging
         # if self.aug_pipe:
         #     logging.info(f"aug time: {self.aug_pipe.time_consumed:.4f} seconds")
         #     self.aug_pipe.time_consumed = 0

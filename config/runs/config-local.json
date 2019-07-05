@@ -8,43 +8,61 @@
     },
 
     "train": {
+        "seed": -1,
+        "_seed_comment" : "negative value disables determined seed",
 
-        "image_folder":   "C:/Users/admin/Google Drive/Datasets/head-detection/JPEGImages/",
-        "annot_folder":   "C:/Users/admin/Google Drive/Datasets/head-detection/Annotations/",
-        "cache_dir"         :   "C:/Users/admin/Google Drive/Datasets/head-detection/",
-        "split_file"        :   "C:/Users/admin/Google Drive/Datasets/head-detection/ImageSets/MainCombined/trainval2.txt",
-
-        "seed": 42,
-
-        "batch_size":           2,
-        "gradient_accumulations": 1,
+        "batch_size":           16,
+        "gradient_accumulations": 4,
         "_effective_batch_size_comment": "effective batch size: batch_size * gradient_accumulations",
         "learning_rate":        1e-4,
-        "nb_epochs":            1,
+        "nb_epochs":            60,
 
         "augment":              true,
-        "gradient_clipping": false,
+        "gradient_clipping": true,
         "freeze_feature_extractor": false,
 
         "save_every"        :   -1,
 
-        "debug":                true
+        "debug":                false,
+
+        "datasets": [{
+                "name"              :  "SCUT-HEAD",
+                "image_folder"      :  "E:/Datasets/head-detection/JPEGImages/",
+                "annot_folder"      :  "E:/Datasets/head-detection/Annotations/",
+                "cache_dir"         :  "E:/Datasets/head-detection/",
+                "split_file"        :  "E:/Datasets/head-detection/ImageSets/MainCombined/trainval.txt"
+            }, {
+                "name"              :  "Hollywood Heads",
+                "image_folder"      :  "E:/Datasets/HollywoodHeads/HollywoodHeads/JPEGImages/",
+                "annot_folder"      :  "E:/Datasets/HollywoodHeads/HollywoodHeads/Annotations/",
+                "cache_dir"         :  "E:/Datasets/HollywoodHeads/HollywoodHeads/",
+                "split_file"        :  "E:/Datasets/HollywoodHeads/HollywoodHeads/Splits/train.txt"
+        }]
     },
 
     "val": {
-        "validate": true,
-
-        "image_folder":   "C:/Users/admin/Google Drive/Datasets/head-detection/JPEGImages/",
-        "annot_folder":   "C:/Users/admin/Google Drive/Datasets/head-detection/Annotations/",
-        "cache_dir"         :   "C:/Users/admin/Google Drive/Datasets/head-detection/",
-        "split_file"        :   "C:/Users/admin/Google Drive/Datasets/head-detection/ImageSets/MainCombined/test.txt",
+         "validate"        :  false,
 
         "nms_threshold"  : 0.3,
         "conf_threshold" : 0.5,
         "iou_threshold"  : 0.5,
 
-        "shuffle_dataset": true,
+        "shuffle_dataset": false,
 
-        "batch_size": 4
+        "batch_size": 16,
+
+        "datasets": [{
+            "name"              :  "SCUT-HEAD",
+            "image_folder"      :  "/content/drive/My Drive/Datasets/head-detection/JPEGImages/",
+            "annot_folder"      :  "/content/drive/My Drive/Datasets/head-detection/Annotations/",
+            "cache_dir"         :  "/content/drive/My Drive/Datasets/head-detection/",
+            "split_file"        :  "/content/drive/My Drive/Datasets/head-detection/ImageSets/MainCombined/test.txt"
+        }, {
+            "name"              :  "Hollywood Heads",
+            "image_folder"      :  "/content/drive/My Drive/Datasets/HollywoodHeads/JPEGImages/",
+            "annot_folder"      :  "/content/drive/My Drive/Datasets/HollywoodHeads/Annotations/",
+            "cache_dir"         :  "/content/drive/My Drive/Datasets/HollywoodHeads/",
+            "split_file"        :  "/content/drive/My Drive/Datasets/HollywoodHeads/Splits/test.txt"
+        }]
     }
 }
