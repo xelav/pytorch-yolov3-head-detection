@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
+import torchvision.transforms as transforms
 
 from utils.parse_config import *
 from utils.utils import build_targets, to_cpu, non_max_suppression
@@ -366,8 +367,9 @@ class Darknet(nn.Module):
         
         returns - bboxes (N, 7)
         """
-            
-        img = torch.from_numpy(np.array(image)).float().permute(2,0,1)
+        
+        img = transforms.ToTensor()(image)
+        # img = torch.from_numpy(np.array(image)).float().permute(2,0,1)
         padded_img, pad = pad_to_square(img)
         warped_img = F.interpolate(padded_img.unsqueeze(0), size=img_size, mode="nearest").squeeze(0)
         
