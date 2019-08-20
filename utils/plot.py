@@ -35,7 +35,7 @@ def draw_tracking_state(image, tracking_state, trail_length=40, trail_size=None,
             xcenter = int( xmin + (xmax - xmin) //2 )
             ycenter = int( ymin + (ymax - ymin) //2 )
 
-            cv2.circle(image, (xcenter, ycenter), int(r), track.color, 5)
+            cv2.circle(image, (xcenter, ycenter), int(r), color=track.color, thickness=-1)
         
     return image
 
@@ -158,7 +158,7 @@ def draw_image_with_bboxes(img, bboxes):
     ax.imshow(img)
 
     img_w, img_h, _ = img.shape
-    print(img_w, img_h)
+    # print(img_w, img_h)
 
     for xc, yc, w, h in bboxes:
 

@@ -47,13 +47,14 @@ class Tracklet:
         self.color = np.random.rand(3,) * 255
         self.death_count = 0
 
-    def new_bbox(self, bbox):
+    def new_bbox(self, bbox, drop_death_count=True):
         if bbox[4] > self.max_score:
             self.max_score = bbox[4]
 
         self.bboxes.append(bbox)
 
-        self.death_count = 0
+        if drop_death_count:
+            self.death_count = 0
 
     @property
     def last_bbox(self):
@@ -86,6 +87,7 @@ class TrackingState:
     def __init__(self, sigma_h=0.5, sigma_iou=0.25, min_length=3, max_lost_time=5):
         
         self.tracks = []
+        self.finished_tracks = []
         self.sigma_h = sigma_h
         self.sigma_iou = sigma_iou
         self.min_length = min_length
@@ -106,6 +108,7 @@ class TrackingState:
         lost_tracks = []
         for track in self.tracks:
 
+            was_updated = False
             if len(boxes_temp) > 0:
                 was_updated, best_match_ind = track.update(boxes_temp, self.sigma_iou)
 
@@ -116,7 +119,8 @@ class TrackingState:
                     # del boxes_temp[best_match_ind]
 
             # if track was not updated
-            if len(updated_tracks) == 0 or track is not updated_tracks[-1]:
+            # if len(updated_tracks) == 0 or track is not updated_tracks[-1]:
+            if not was_updated:
                 # finish track when the conditions are met
                 if track.max_score >= self.sigma_h and len(track.bboxes) >= self.min_length:
                     lost_tracks.append(track)
@@ -127,7 +131,11 @@ class TrackingState:
                       for det in boxes_temp if det[4] >= self.sigma_h]
 
         # remove long lost tracks
-        lost_tracks = [track for track in lost_tracks if track.death_count <= self.max_lost_time]
+        finished_tracks = [track for track in lost_tracks if track.death_count > self.max_lost_time]
+        lost_tracks = [track for track in lost_tracks if track not in finished_tracks]
+        self.finished_tracks += finished_tracks
+        # extend lost tracks by same last bbox
+        [track.new_bbox(track.last_bbox, drop_death_count=False) for track in lost_tracks]
 
         active_boxes = [track.last_bbox for track in self.tracks]
         active_tracks = updated_tracks + new_tracks + lost_tracks
