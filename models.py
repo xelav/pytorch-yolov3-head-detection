@@ -359,7 +359,7 @@ class Darknet(nn.Module):
 
         fp.close()
 
-    def predict(self, image, device='cuda', img_size=446, conf_thres=0.6, nms_thres=0.2, normalize=False):
+    def predict(self, image, device='cuda', img_size=446, conf_thres=0.6, nms_thres=0.2, normalize=False, normalize_input=True):
         """
         Util method for getting preprocessed bboxes
         
@@ -368,8 +368,10 @@ class Darknet(nn.Module):
         returns - bboxes (N, 7)
         """
         
-        img = transforms.ToTensor()(image)
-        # img = torch.from_numpy(np.array(image)).float().permute(2,0,1)
+        if normalize_input:
+            img = transforms.ToTensor()(image)
+        else:
+            img = torch.from_numpy(np.array(image)).float().permute(2,0,1)
         padded_img, pad = pad_to_square(img)
         warped_img = F.interpolate(padded_img.unsqueeze(0), size=img_size, mode="nearest").squeeze(0)
         
